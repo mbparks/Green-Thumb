@@ -3,8 +3,8 @@
   GREEN THUMB
   Field Instrument No. 027
 
-  A glasshouse bench instrument in three readings, the three things a
-  greenhouse reckons with: heat, light, and the frosts that bound the season.
+  A gardening field instrument in four readings, the four things a garden
+  reckons with: heat, light, frost, and water.
 
     HEAT.  Growing degree days. It reads daily high and low temperatures for
            your coordinates from Open-Meteo and sums the heat your garden has
@@ -19,8 +19,15 @@
            first fall frost with their one-in-ten risk dates, and lays out a
            planting calendar counted from those dates.
 
+    WATER. A drought reading. It compares recent rainfall against the same
+           calendar window across about twenty archive years (percent of normal
+           and a percentile), tracks days since rain, and nets rainfall against
+           reference evaporation for a true water balance.
+
+  Location by GPS, US ZIP code, or hand-entered coordinates.
+
   One file. No build step. No server. No API key. Light works fully offline.
-  Heat and Frost need a connection only to pull temperatures.
+  Heat, Frost, and Water need a connection only to pull weather data.
 
   Temperatures by Open-Meteo.com, licensed CC BY 4.0.
   Solar position after the NOAA solar calculation.
@@ -278,7 +285,7 @@
     <p class="marque">Mountain Maryland &middot; Field Instruments</p>
     <h1>Green <em>Thumb</em></h1>
     <span class="serial">Field Instrument No. 027</span>
-    <p class="creed">A gardening field instrument. It reckons the three measures a garden lives by: the heat a season banks, the light a day pours over your beds, and the frosts that open and close the growing year.</p>
+    <p class="creed">A gardening field instrument. It reckons the four measures a garden lives by: the heat a season banks, the light a day pours over your beds, the water that reaches the roots, and the frosts that open and close the growing year.</p>
   </header>
 
   <section>
@@ -289,13 +296,22 @@
         <b>Longitude</b><span id="rLon">not set</span>
         <b>Elevation</b><span id="rElev">,</span>
         <b>Zone</b><span id="rTz">,</span>
+        <b>Place</b><span id="rPlace">,</span>
       </div>
       <div style="flex:1"></div>
       <div class="reach">
         <button id="btnLocate" class="go" type="button">Use my location</button>
+        <label><span class="lab">US ZIP code</span><input id="inZip" type="text" inputmode="numeric" maxlength="5" placeholder="21502" style="width:104px"></label>
+        <button id="btnZip" type="button">Find</button>
         <label><span class="lab">Latitude</span><input id="inLat" type="number" step="0.0001" inputmode="decimal" placeholder="39.62"></label>
         <label><span class="lab">Longitude</span><input id="inLon" type="number" step="0.0001" inputmode="decimal" placeholder="-78.96"></label>
         <button id="btnManual" type="button">Set by hand</button>
+        <label><span class="lab">Units</span>
+          <select id="selUnit">
+            <option value="fahrenheit">Imperial (&deg;F, in, ft)</option>
+            <option value="celsius">Metric (&deg;C, mm, m)</option>
+          </select>
+        </label>
       </div>
     </div>
   </section>
@@ -306,6 +322,7 @@
         <button id="tabHeat" role="tab" aria-selected="true" type="button">Heat</button>
         <button id="tabLight" role="tab" aria-selected="false" type="button">Light</button>
         <button id="tabFrost" role="tab" aria-selected="false" type="button">Frost</button>
+        <button id="tabWater" role="tab" aria-selected="false" type="button">Water</button>
       </div>
       <span class="what" id="modeWhat">Growing degree days banked this season.</span>
     </div>
@@ -318,8 +335,8 @@
       <div class="pane arch">
         <div class="controls">
           <label><span class="lab">Crop preset</span><select id="selCrop"></select></label>
-          <label><span class="lab">Base temperature</span><input id="inBase" type="number" step="0.5"></label>
-          <label><span class="lab">Upper cutoff</span><input id="inCutoff" type="number" step="0.5" placeholder="none"></label>
+          <label><span class="lab" id="labBase">Base temperature</span><input id="inBase" type="number" step="0.5"></label>
+          <label><span class="lab" id="labCutoff">Upper cutoff</span><input id="inCutoff" type="number" step="0.5" placeholder="none"></label>
           <label><span class="lab">Method</span>
             <select id="selMethod">
               <option value="simple">Simple average</option>
@@ -327,12 +344,6 @@
             </select>
           </label>
           <label><span class="lab">Accumulate from</span><input id="inStart" type="date"></label>
-          <label><span class="lab">Units</span>
-            <select id="selUnit">
-              <option value="fahrenheit">Fahrenheit</option>
-              <option value="celsius">Celsius</option>
-            </select>
-          </label>
           <label><span class="lab">Target GDD (optional)</span><input id="inTarget" type="number" step="1" placeholder="e.g. 1400"></label>
           <div><span class="lab" style="visibility:hidden">Read</span><button id="btnHeat" class="go" type="button" style="width:100%">Take heat reading</button></div>
         </div>
@@ -456,11 +467,56 @@
     </section>
   </div>
 
-  <div class="status" id="status">Set a location to begin. Light works offline. Heat and Frost fetch temperatures.</div>
+  <!-- WATER -->
+  <div id="panelWater" class="hidden">
+    <section>
+      <p class="eyebrow">Water &middot; settings</p>
+      <div class="pane arch">
+        <div class="controls">
+          <label><span class="lab">Window</span>
+            <select id="selWindow">
+              <option value="30">Last 30 days</option>
+              <option value="60" selected>Last 60 days</option>
+              <option value="90">Last 90 days</option>
+            </select>
+          </label>
+          <div><span class="lab" style="visibility:hidden">Read</span><button id="btnWater" class="go" type="button" style="width:100%">Read water balance</button></div>
+          <div style="grid-column: span 2"></div>
+        </div>
+        <p class="hint">Rainfall is compared against the same calendar window across about twenty archive years, so percent of normal and the percentile reflect your own ground. This is a precipitation reading, not the official US Drought Monitor, which blends many indicators.</p>
+      </div>
+    </section>
+
+    <section>
+      <p class="eyebrow">Water &middot; reading</p>
+      <div class="tags" id="waterTags">
+        <div class="tag-card head light"><div class="k">Precipitation vs normal</div><div class="v" id="wPct">,</div></div>
+        <div class="tag-card"><div class="k">Rain this window</div><div class="v" id="wRain" style="font-size:24px">,</div></div>
+        <div class="tag-card"><div class="k">Normal for window</div><div class="v" id="wNormal" style="font-size:24px">,</div></div>
+        <div class="tag-card"><div class="k">Percentile</div><div class="v" id="wPctile" style="font-size:24px">,</div></div>
+        <div class="tag-card"><div class="k">Days since rain</div><div class="v" id="wDry" style="font-size:24px">,</div></div>
+        <div class="tag-card"><div class="k">Water balance (rain minus ET)</div><div class="v" id="wBal" style="font-size:24px">,</div></div>
+      </div>
+      <p class="status" id="waterNote"></p>
+    </section>
+
+    <section>
+      <p class="eyebrow">Water &middot; rainfall against normal</p>
+      <div class="chartwrap"><div id="waterChart" aria-label="Cumulative rainfall against normal"></div></div>
+      <div class="legend">
+        <span><span class="swatch" style="border-top-color:var(--fern)"></span> Accumulated rain</span>
+        <span><span class="swatch" style="border-top-color:var(--frame-soft); border-top-style:dashed"></span> Normal accumulation</span>
+        <span><span class="swatch" style="border-top-color:var(--verdigris)"></span> Daily rain</span>
+        <span><span class="swatch" style="border-top-color:var(--brass)"></span> Today</span>
+      </div>
+    </section>
+  </div>
+
+  <div class="status" id="status">Set a location to begin. Light works offline. Heat, Frost, and Water fetch weather data.</div>
 
   <footer>
     <span>Field Instrument No. 027 &middot; <em style="font-variant:normal; font-style:italic">for Kailey</em> &middot; Make. Hack. Learn. Share. Repeat.</span>
-    <span>Heat by <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo.com</a> CC BY 4.0 &middot; Light by NOAA method &middot; GPL-3.0</span>
+    <span>Weather by <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo.com</a> CC BY 4.0 &middot; Light by NOAA method &middot; ZIP by Zippopotam.us and OpenStreetMap &middot; GPL-3.0</span>
   </footer>
 </div>
 
@@ -468,7 +524,7 @@
 "use strict";
 (function () {
   var $ = function (id) { return document.getElementById(id); };
-  var state = { lat: null, lon: null, elev: null, tz: null, series: null, frost: null, todayISO: null, lightCast: false };
+  var state = { lat: null, lon: null, elev: null, tz: null, place: null, series: null, frost: null, water: null, todayISO: null, lightCast: false };
 
   // Resolve var(--token) to the current theme's literal color so SVG renders
   // correctly in every browser and recolors when the theme is switched.
@@ -489,8 +545,9 @@
   function showLoc(){
     $("rLat").textContent = state.lat===null ? "not set" : state.lat.toFixed(4);
     $("rLon").textContent = state.lon===null ? "not set" : state.lon.toFixed(4);
-    $("rElev").textContent = state.elev===null ? "," : Math.round(state.elev)+" m";
+    $("rElev").textContent = state.elev===null ? "," : (unit()==="fahrenheit" ? Math.round(state.elev*3.28084)+" ft" : Math.round(state.elev)+" m");
     $("rTz").textContent = state.tz || ",";
+    $("rPlace").textContent = state.place || ",";
   }
   function setStatus(msg, kind){ var el=$("status"); el.className="status"+(kind?" "+kind:""); el.innerHTML=msg; }
 
@@ -506,7 +563,7 @@
     if(!navigator.geolocation){ setStatus("This browser has no geolocation. Enter coordinates by hand.","warn"); return; }
     setStatus("Locating. <span class='spin'>\u273F</span>");
     navigator.geolocation.getCurrentPosition(function(pos){
-      state.lat=pos.coords.latitude; state.lon=pos.coords.longitude;
+      state.lat=pos.coords.latitude; state.lon=pos.coords.longitude; state.place=null;
       $("inLat").value=state.lat.toFixed(4); $("inLon").value=state.lon.toFixed(4);
       showLoc(); setStatus("Position fixed.");
       resolveStationMeta().then(autoCastLight);
@@ -517,9 +574,37 @@
   $("btnManual").addEventListener("click", function(){
     var la=parseFloat($("inLat").value), lo=parseFloat($("inLon").value);
     if(!isFinite(la)||!isFinite(lo)||la<-90||la>90||lo<-180||lo>180){ setStatus("Enter a valid latitude (-90 to 90) and longitude (-180 to 180).","err"); return; }
-    state.lat=la; state.lon=lo; showLoc(); setStatus("Coordinates set by hand.");
+    state.lat=la; state.lon=lo; state.place=null; showLoc(); setStatus("Coordinates set by hand.");
     resolveStationMeta().then(autoCastLight);
   });
+
+  function setFromGeocode(lat, lon, place){
+    state.lat=lat; state.lon=lon; state.place=place||null;
+    $("inLat").value=lat.toFixed(4); $("inLon").value=lon.toFixed(4);
+    showLoc(); setStatus("Located "+(place?place:(lat.toFixed(3)+", "+lon.toFixed(3)))+".");
+    resolveStationMeta().then(autoCastLight);
+  }
+  function geocodeZip(){
+    var zip=($("inZip").value||"").trim();
+    if(!/^\d{5}$/.test(zip)){ setStatus("Enter a five digit US ZIP code.","err"); return; }
+    setStatus("Looking up ZIP "+zip+". <span class='spin'>\u273F</span>");
+    // Primary: Zippopotam.us (clean city and state). Fallback: OpenStreetMap Nominatim.
+    fetch("https://api.zippopotam.us/us/"+zip, {mode:"cors"}).then(function(r){
+      if(!r.ok) throw new Error("zip "+r.status); return r.json();
+    }).then(function(j){
+      var p=j.places&&j.places[0]; if(!p) throw new Error("no place");
+      setFromGeocode(parseFloat(p.latitude), parseFloat(p.longitude), p["place name"]+", "+p["state abbreviation"]);
+    }).catch(function(){
+      fetch("https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=us&postalcode="+zip, {mode:"cors"})
+        .then(function(r){ return r.json(); }).then(function(arr){
+          if(!arr || !arr.length) throw new Error("not found");
+          var hit=arr[0]; var label=(hit.display_name||"").split(",").slice(0,2).join(",").trim();
+          setFromGeocode(parseFloat(hit.lat), parseFloat(hit.lon), label||("ZIP "+zip));
+        }).catch(function(e){ setStatus("Could not look up that ZIP ("+e.message+"). Try GPS or enter coordinates by hand.","err"); });
+    });
+  }
+  $("btnZip").addEventListener("click", geocodeZip);
+  $("inZip").addEventListener("keydown", function(e){ if(e.key==="Enter") geocodeZip(); });
 
   /* ===================== timezone helpers ===================== */
   function tzOffsetMin(tz, ms){
@@ -562,8 +647,47 @@
     $("inCutoff").value=(cut===null||cut===undefined)?"":cut;
     $("selMethod").value=(cut===null||cut===undefined)?"simple":"modified";
   }
+  function convTemp(v, toF){ return toF ? v*1.8+32 : (v-32)/1.8; }
+  function round1(v){ return Math.round(v*10)/10; }
+  function updateUnitLabels(){
+    var f=unit()==="fahrenheit", tu=f?"\u00B0F":"\u00B0C";
+    $("labBase").textContent="Base temperature ("+tu+")";
+    $("labCutoff").textContent="Upper cutoff ("+tu+")";
+    var th=$("selThresh");
+    if(th && th.options.length>=3){
+      var v=f?{l:"36\u00B0F",f:"32\u00B0F",h:"28\u00B0F"}:{l:"2\u00B0C",f:"0\u00B0C",h:"-2\u00B0C"};
+      th.options[0].textContent="Light frost ("+v.l+")";
+      th.options[1].textContent="Frost ("+v.f+")";
+      th.options[2].textContent="Hard freeze ("+v.h+")";
+    }
+  }
+  function convertSeries(toUnit){
+    if(!state.series || state.seriesUnit===toUnit) return;
+    var toF = toUnit==="fahrenheit";
+    state.series.forEach(function(r){ if(r.tmax!==null) r.tmax=convTemp(r.tmax,toF); if(r.tmin!==null) r.tmin=convTemp(r.tmin,toF); });
+    state.seriesUnit=toUnit;
+  }
+  function computeHeat(){
+    if(!state.series) return;
+    var base=parseFloat($("inBase").value); if(!isFinite(base)) return;
+    var cutRaw=$("inCutoff").value.trim(), cutoff=cutRaw===""?null:parseFloat(cutRaw), method=$("selMethod").value;
+    var cum=0; state.series.forEach(function(r){ var g=gddForDay(r.tmax,r.tmin,base,cutoff,method); r.gdd=g; if(g!==null) cum+=g; r.cum=cum; });
+    renderHeat(base,cutoff,method);
+  }
+  function onUnitChange(){
+    var newF = unit()==="fahrenheit";
+    var b=parseFloat($("inBase").value); if(isFinite(b)) $("inBase").value=round1(convTemp(b,newF));
+    var cr=$("inCutoff").value.trim(); if(cr!=="" && isFinite(parseFloat(cr))) $("inCutoff").value=round1(convTemp(parseFloat(cr),newF));
+    var tg=$("inTarget").value.trim(); if(tg!=="" && isFinite(parseFloat(tg))) $("inTarget").value=Math.round(parseFloat(tg)*(newF?1.8:1/1.8));
+    updateUnitLabels();
+    showLoc();
+    if(state.series){ convertSeries(unit()); computeHeat(); }
+    if(state.frost) renderFrost(state.frost);
+    if(state.water) renderWater(state.water);
+  }
   $("selCrop").addEventListener("change",applyCrop);
-  $("selUnit").addEventListener("change",applyCrop);
+  $("selUnit").addEventListener("change",onUnitChange);
+  updateUnitLabels();
 
   function gddForDay(tmax,tmin,base,cutoff,method){
     if(tmax===null||tmin===null||tmax===undefined||tmin===undefined) return null;
@@ -628,12 +752,12 @@
     buildSeries(startISO).then(function(raw){
       if(!raw.length){ setStatus("No temperatures returned for that range.","err"); return; }
       var cum=0; raw.forEach(function(r){ var g=gddForDay(r.tmax,r.tmin,base,cutoff,method); r.gdd=g; if(g!==null) cum+=g; r.cum=cum; });
-      state.series=raw; renderHeat(base,cutoff,method); cacheSave(startISO,base,cutoff,method);
+      state.series=raw; state.seriesUnit=unit(); renderHeat(base,cutoff,method); cacheSave(startISO,base,cutoff,method);
       var n=raw.filter(function(r){return !r.forecast;}).length;
       setStatus("Heat reading complete. "+n+" measured days from Open-Meteo, saved for offline recall.");
     }).catch(function(e){
       var hit=cacheLoad();
-      if(hit&&hit.series){ setStatus("Network unavailable ("+e.message+"). Showing the last saved heat reading from "+hit.savedAt+".","warn"); state.series=hit.series; renderHeat(hit.base,hit.cutoff,hit.method); }
+      if(hit&&hit.series){ setStatus("Network unavailable ("+e.message+"). Showing the last saved heat reading from "+hit.savedAt+".","warn"); state.series=hit.series; state.seriesUnit=hit.unit||unit(); renderHeat(hit.base,hit.cutoff,hit.method); }
       else setStatus("Could not reach Open-Meteo ("+e.message+"). Check the connection and try again.","err");
     });
   });
@@ -989,28 +1113,184 @@
   }
   $("btnFrost").addEventListener("click", readFrost);
 
+  /* ===================== WATER: rainfall and drought ===================== */
+  var MM_PER_IN = 25.4;
+  function precipUnitLabel(){ return unit()==="fahrenheit" ? "in" : "mm"; }
+  function mmToDisplay(mm){ return unit()==="fahrenheit" ? mm/MM_PER_IN : mm; }
+  function fmtDepth(mm){ var v=mmToDisplay(mm); return unit()==="fahrenheit" ? v.toFixed(2) : v.toFixed(v<10?1:0); }
+  var WET_DAY_MM = 2.5; // a measurable rain day (about a tenth of an inch)
+
+  function droughtCategory(p){
+    if(p===null) return {label:"insufficient history", dry:null};
+    if(p<2)  return {label:"exceptional drought", dry:true};
+    if(p<5)  return {label:"extreme drought", dry:true};
+    if(p<10) return {label:"severe drought", dry:true};
+    if(p<20) return {label:"moderate drought", dry:true};
+    if(p<30) return {label:"abnormally dry", dry:true};
+    if(p<=70) return {label:"near normal", dry:false};
+    if(p<=90) return {label:"moist", dry:false};
+    if(p<=98) return {label:"very wet", dry:false};
+    return {label:"exceptionally wet", dry:false};
+  }
+  function addDaysISO(iso, n){ var d=new Date(iso+"T00:00:00Z"); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); }
+
+  function readWater(){
+    if(state.lat===null){ setStatus("Set a location first.","err"); return; }
+    var win=parseInt($("selWindow").value,10), years=20;
+    var endY=new Date().getFullYear(), startY=endY-years;
+    var devToday=new Date().toISOString().slice(0,10);
+    var b="&latitude="+state.lat+"&longitude="+state.lon+"&daily=precipitation_sum,et0_fao_evapotranspiration&timezone=auto";
+    var arUrl="https://archive-api.open-meteo.com/v1/archive?"+b+"&start_date="+(startY-1)+"-10-01&end_date="+devToday;
+    var fcUrl="https://api.open-meteo.com/v1/forecast?"+b+"&past_days=21&forecast_days=1";
+    setStatus("Reading rainfall history over "+state.lat.toFixed(2)+", "+state.lon.toFixed(2)+". <span class='spin'>\u273F</span>");
+    Promise.all([getJSON(fcUrl), getJSON(arUrl).catch(function(){return null;})]).then(function(res){
+      var fc=res[0], ar=res[1];
+      state.tz=fc.timezone||state.tz; if(typeof fc.elevation==="number") state.elev=fc.elevation;
+      state.todayISO=todayInZone(fc.timezone); showLoc();
+      var precip={}, et0={};
+      function ingest(o){ if(!o||!o.daily||!o.daily.time) return; var t=o.daily.time, pr=o.daily.precipitation_sum, ev=o.daily.et0_fao_evapotranspiration;
+        for(var i=0;i<t.length;i++){ if(pr[i]!==null&&pr[i]!==undefined) precip[t[i]]=pr[i]; if(ev&&ev[i]!==null&&ev[i]!==undefined) et0[t[i]]=ev[i]; } }
+      ingest(ar); ingest(fc); // forecast overlays the recent archive gap
+      var st=waterStats(precip, et0, win, startY, endY);
+      if(!st){ setStatus("Not enough rainfall data returned for that location.","err"); return; }
+      state.water=st; renderWater(st);
+      setStatus("Water reading complete. "+win+" day window against "+st.nYears+" years, saved.");
+    }).catch(function(e){ setStatus("Could not reach the Open-Meteo archive ("+e.message+"). Check the connection and try again.","err"); });
+  }
+
+  function sumWindow(map, endISO, win){
+    var s=0, miss=0;
+    for(var i=0;i<win;i++){ var d=addDaysISO(endISO, -i); if(map[d]!==undefined) s+=map[d]; else miss++; }
+    return {sum:s, miss:miss};
+  }
+  function pctRank(sorted, v){ // empirical percentile of v within sorted ascending
+    if(!sorted.length) return null; var below=0; for(var i=0;i<sorted.length;i++){ if(sorted[i]<v) below++; }
+    return (below/sorted.length)*100;
+  }
+  function mean(a){ return a.length ? a.reduce(function(x,y){return x+y;},0)/a.length : null; }
+
+  function waterStats(precip, et0, win, startY, endY){
+    var today=state.todayISO;
+    var cur=sumWindow(precip, today, win);
+    if(cur.miss > win*0.5) return null;
+    var curET=sumWindow(et0, today, win).sum;
+    // historical window sums: same month and day ending in each past year
+    var hist=[], mo=parseInt(today.slice(5,7),10), day=parseInt(today.slice(8,10),10);
+    for(var y=startY; y<=endY-1; y++){
+      var end=y+"-"+String(mo).padStart(2,"0")+"-"+String(day).padStart(2,"0");
+      var w=sumWindow(precip, end, win);
+      if(w.miss <= win*0.2) hist.push(w.sum);
+    }
+    var sorted=hist.slice().sort(function(a,b){return a-b;});
+    var normal=mean(hist), pct=pctRank(sorted, cur.sum);
+    var pctOfNormal = (normal&&normal>0) ? (cur.sum/normal)*100 : null;
+    // current window daily series for chart and dry-spell
+    var days=[]; for(var i=win-1;i>=0;i--){ var d=addDaysISO(today,-i); days.push({date:d, p: precip[d]!==undefined?precip[d]:0, has: precip[d]!==undefined}); }
+    var c=0, curCum=days.map(function(r){ c+=r.p; return c; });
+    // normal cumulative by offset across years
+    var normCum=new Array(win).fill(0), counts=new Array(win).fill(0);
+    for(var y2=startY; y2<=endY-1; y2++){
+      var end2=y2+"-"+String(mo).padStart(2,"0")+"-"+String(day).padStart(2,"0");
+      var cc=0, ok=true;
+      for(var i2=0;i2<win;i2++){ var dd=addDaysISO(end2, -(win-1)+i2); var v=precip[dd]; if(v===undefined){ ok=false; break; } cc+=v; normCum[i2]+=cc; }
+      if(ok) for(var k=0;k<win;k++) counts[k]++;
+    }
+    for(var k2=0;k2<win;k2++){ normCum[k2] = counts[k2] ? normCum[k2]/counts[k2] : null; }
+    // days since rain and longest dry spell within window
+    var daysSince=null; for(var i3=0;i3<win;i3++){ var d3=addDaysISO(today,-i3); if(precip[d3]!==undefined && precip[d3]>=WET_DAY_MM){ daysSince=i3; break; } }
+    var dry=0, dryMax=0; days.forEach(function(r){ if(r.p<WET_DAY_MM){ dry++; if(dry>dryMax) dryMax=dry; } else dry=0; });
+    return { win:win, current:cur.sum, currentET:curET, balance:cur.sum-curET, normal:normal, pct:pct, pctOfNormal:pctOfNormal,
+             nYears:hist.length, days:days, curCum:curCum, normCum:normCum, daysSince:daysSince, dryMax:dryMax };
+  }
+
+  function renderWater(st){
+    var u=precipUnitLabel(), cat=droughtCategory(st.pct);
+    $("wPct").innerHTML = (st.pctOfNormal===null?"n/a":Math.round(st.pctOfNormal)+"%") + " <small>"+cat.label+"</small>";
+    var head=document.querySelector("#waterTags .head");
+    head.style.setProperty("--accent", cat.dry===true?"var(--terra)":cat.dry===false?"var(--fern)":"var(--ink-soft)");
+    $("wPct").style.color = cat.dry===true?"var(--terra)":cat.dry===false?"var(--fern)":"var(--ink-soft)";
+    $("wRain").innerHTML = fmtDepth(st.current)+" <small>"+u+"</small>";
+    $("wNormal").innerHTML = st.normal===null?",":fmtDepth(st.normal)+" <small>"+u+"</small>";
+    $("wPctile").textContent = st.pct===null?",":(Math.round(st.pct)+ordinal(Math.round(st.pct)));
+    $("wDry").textContent = st.daysSince===null?(">"+st.win):st.daysSince;
+    var bal=st.balance; $("wBal").innerHTML = (bal>=0?"+":"\u2212")+fmtDepth(Math.abs(bal))+" <small>"+u+"</small>";
+    $("wBal").style.color = bal>=0 ? "var(--fern)" : "var(--terra)";
+    var note="The last "+st.win+" days brought "+fmtDepth(st.current)+" "+u+" of rain";
+    if(st.pctOfNormal!==null) note+=", "+Math.round(st.pctOfNormal)+" percent of the "+fmtDepth(st.normal)+" "+u+" normal for this window ("+cat.label+")";
+    note+=". Against reference evaporation the garden is running a "+(st.balance>=0?"surplus":"deficit")+" of "+fmtDepth(Math.abs(st.balance))+" "+u+". Longest dry stretch: "+st.dryMax+" days.";
+    $("waterNote").textContent=note;
+    drawRainChart(st);
+  }
+  function ordinal(n){ var s=["th","st","nd","rd"], v=n%100; return (s[(v-20)%10]||s[v]||s[0]); }
+
+  function drawRainChart(st){
+    var W=1000,H=440,m={l:60,r:18,t:20,b:44}, iw=W-m.l-m.r, ih=H-m.t-m.b, n=st.days.length;
+    var maxCum=0; for(var i=0;i<n;i++){ if(st.curCum[i]>maxCum) maxCum=st.curCum[i]; if(st.normCum[i]!==null&&st.normCum[i]>maxCum) maxCum=st.normCum[i]; }
+    var maxDisp=mmToDisplay(maxCum)||1, yTop=niceCeil(maxDisp);
+    var maxDaily=0; st.days.forEach(function(r){ if(r.p>maxDaily) maxDaily=r.p; }); maxDaily=maxDaily||1;
+    function X(i){ return m.l+(n<=1?0:(i/(n-1))*iw); }
+    function Y(disp){ return m.t+ih-(disp/yTop)*ih; }
+    var band=70; function Yd(mm){ return m.t+ih-(mmToDisplay(mm)/mmToDisplay(maxDaily))*band; }
+    var u=precipUnitLabel();
+    var svg=['<svg viewBox="0 0 '+W+' '+H+'" role="img" preserveAspectRatio="xMidYMid meet">'];
+    var ticks=5;
+    for(var t=0;t<=ticks;t++){ var val=(yTop/ticks)*t, yy=Y(val);
+      svg.push('<line x1="'+m.l+'" y1="'+yy+'" x2="'+(W-m.r)+'" y2="'+yy+'" stroke="var(--line)" stroke-width="1"/>');
+      svg.push('<text x="'+(m.l-8)+'" y="'+(yy+4)+'" text-anchor="end" font-size="13" fill="var(--ink-soft)">'+(yTop<=3?val.toFixed(1):Math.round(val))+'</text>'); }
+    svg.push('<text x="'+(m.l-8)+'" y="'+(m.t-6)+'" text-anchor="end" font-size="11" fill="var(--ink-soft)" font-variant="small-caps">'+u+'</text>');
+    var months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"], lastM=null;
+    for(var k=0;k<n;k++){ var mm=st.days[k].date.slice(0,7); if(mm!==lastM){ lastM=mm; var xx=X(k);
+      svg.push('<line x1="'+xx+'" y1="'+m.t+'" x2="'+xx+'" y2="'+(m.t+ih)+'" stroke="var(--sage)" stroke-width="1"/>');
+      svg.push('<text x="'+(xx+3)+'" y="'+(m.t+ih+16)+'" font-size="12" fill="var(--ink-soft)">'+months[parseInt(st.days[k].date.slice(5,7),10)-1]+'</text>'); } }
+    // daily rain bars
+    for(var d=0;d<n;d++){ if(st.days[d].p<=0) continue; var bx=X(d);
+      svg.push('<line x1="'+bx+'" y1="'+(m.t+ih)+'" x2="'+bx+'" y2="'+Yd(st.days[d].p)+'" stroke="var(--verdigris)" stroke-width="'+(n>70?1.4:2)+'" stroke-opacity="0.7"/>'); }
+    // shaded area between current and normal
+    var area=[]; for(var a=0;a<n;a++){ if(st.normCum[a]===null) continue; area.push([X(a), Y(mmToDisplay(st.curCum[a]))]); }
+    var back=[]; for(var a2=n-1;a2>=0;a2--){ if(st.normCum[a2]===null) continue; back.push([X(a2), Y(mmToDisplay(st.normCum[a2]))]); }
+    if(area.length>1){ var below = st.pctOfNormal!==null && st.pctOfNormal<100;
+      var poly=area.concat(back).map(function(p,i){ return (i===0?"M":"L")+p[0].toFixed(1)+" "+p[1].toFixed(1); }).join(" ")+" Z";
+      svg.push('<path d="'+poly+'" fill="'+(below?"var(--terra)":"var(--verdigris)")+'" fill-opacity="0.14"/>'); }
+    // normal cumulative (dashed)
+    var npath=[]; for(var nn=0;nn<n;nn++){ if(st.normCum[nn]===null) continue; npath.push((npath.length===0?"M":"L")+X(nn).toFixed(1)+" "+Y(mmToDisplay(st.normCum[nn])).toFixed(1)); }
+    if(npath.length>1) svg.push('<path d="'+npath.join(" ")+'" fill="none" stroke="var(--frame-soft)" stroke-width="2" stroke-dasharray="5 4"/>');
+    // current cumulative (solid)
+    var cpath=st.curCum.map(function(v,i){ return (i===0?"M":"L")+X(i).toFixed(1)+" "+Y(mmToDisplay(v)).toFixed(1); }).join(" ");
+    svg.push('<path d="'+cpath+'" fill="none" stroke="var(--fern)" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"/>');
+    // today marker
+    var tx=X(n-1), ty=Y(mmToDisplay(st.curCum[n-1]));
+    svg.push('<line x1="'+tx+'" y1="'+m.t+'" x2="'+tx+'" y2="'+(m.t+ih)+'" stroke="var(--brass)" stroke-width="1.4"/>');
+    svg.push('<circle cx="'+tx+'" cy="'+ty+'" r="5" fill="var(--brass)" stroke="var(--tag)" stroke-width="1.5"/>');
+    svg.push('<rect x="'+m.l+'" y="'+m.t+'" width="'+iw+'" height="'+ih+'" fill="none" stroke="var(--frame-soft)" stroke-width="1"/></svg>');
+    $("waterChart").innerHTML=themeSvg(svg.join(""));
+  }
+  $("btnWater").addEventListener("click", readWater);
+
   /* ===================== mode switch ===================== */
   function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
   function setMode(which){
-    ["heat","light","frost"].forEach(function(name){
+    ["heat","light","frost","water"].forEach(function(name){
       var on=which===name;
       $("tab"+cap(name)).setAttribute("aria-selected", on?"true":"false");
       $("panel"+cap(name)).classList.toggle("hidden", !on);
     });
     var what={ heat:"Growing degree days banked this season.",
                light:"The sun's arc across your sky, today and across the year.",
-               frost:"Frost dates and a planting calendar from twenty years of history." };
+               frost:"Frost dates and a planting calendar from twenty years of history.",
+               water:"Rainfall against normal, and the garden's water balance." };
     $("modeWhat").textContent=what[which];
   }
   $("tabHeat").addEventListener("click", function(){ setMode("heat"); });
   $("tabLight").addEventListener("click", function(){ setMode("light"); autoCastLight(); });
   $("tabFrost").addEventListener("click", function(){ setMode("frost"); });
+  $("tabWater").addEventListener("click", function(){ setMode("water"); });
 
   /* ===================== theme ===================== */
   function redrawActive(){
     try {
       if(state.series) drawHeatChart(state.series, parseFloat($("inTarget").value), state.todayISO||todayInZone(state.tz));
       if(state.frost) drawPlantingCalendar(state.frost);
+      if(state.water) drawRainChart(state.water);
       if(state.lightCast && !$("panelLight").classList.contains("hidden")) castLight();
     } catch(e){}
   }
@@ -1034,6 +1314,7 @@
     var hit=cacheLoad();
     if(hit&&hit.series){
       state.lat=hit.lat; state.lon=hit.lon; state.tz=hit.tz; state.elev=hit.elev; state.series=hit.series; state.todayISO=todayInZone(hit.tz);
+      if(hit.unit){ $("selUnit").value=hit.unit; state.seriesUnit=hit.unit; applyCrop(); updateUnitLabels(); }
       if(hit.lat!=null) $("inLat").value=hit.lat.toFixed(4); if(hit.lon!=null) $("inLon").value=hit.lon.toFixed(4);
       showLoc(); renderHeat(hit.base,hit.cutoff,hit.method);
       setStatus("Last saved heat reading from "+hit.savedAt+" loaded. Take a fresh reading to update, or switch to Light.","warn");
